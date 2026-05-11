@@ -1,5 +1,3 @@
-
-
 'use client'
 
 
@@ -311,4 +309,3 @@ export default function StudentDocumentsPage() {
 
 
 
-export const dynamic = 'force-dynamic';
