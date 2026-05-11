@@ -152,7 +152,7 @@ export default function SimpleLogin() {
         <div className="mt-4 text-center">
           <p className="text-sm text-gray-500">
             Student?{' '}
-            <a href="/student-login" className="text-blue-400 hover:text-blue-300 transition">
+            <a href="/student-register" className="text-blue-400 hover:text-blue-300 transition">
               Login here
             </a>
           </p>
