@@ -313,13 +313,91 @@
 
 
 // app/(dashboard)/student/documents/page.tsx
-import dynamic from 'next/dynamic';
 
-const StudentDocumentsClient = dynamic(
-  () => import('./StudentDocumentsClient'),
-  { ssr: false }
-);
+'use client'
 
-export default function Page() {
-  return <StudentDocumentsClient />;
+import { useEffect, useState, useCallback } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import Sidebar from '../../../components/ui/Sidebar'
+import { motion } from 'framer-motion'
+
+export const dynamic = 'force-dynamic';
+
+const documentTypes = [
+  { id: 'acceptance_fee', name: 'Acceptance Fee Receipt', required: true, description: 'Upload your acceptance fee payment receipt' },
+  { id: 'admission_letter', name: 'Admission Letter', required: true, description: 'Upload your official admission letter' },
+  { id: 'birth_cert', name: 'Birth Certificate', required: true, description: 'Upload your birth certificate' },
+  { id: 'medical', name: 'Medical Certificate', required: true, description: 'Upload your medical certificate/fitness report' },
+  { id: 'nin', name: 'NIN Slip', required: true, description: 'Upload your National Identification Number slip' },
+  { id: 'lassra', name: 'LASSRA ID', required: false, description: 'Lagos State Residents Registration Agency ID (if applicable)' },
+  { id: 'o_level', name: 'O-Level Result', required: true, description: 'Upload your WAEC/NECO result' },
+  { id: 'jamb', name: 'JAMB Result', required: true, description: 'Upload your JAMB result slip' },
+]
+
+export default function StudentDocumentsPage() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+
+  const [student, setStudent] = useState<any>(null)
+  const [documents, setDocuments] = useState<any[]>([])
+  const [uploading, setUploading] = useState(false)
+  const [selectedDoc, setSelectedDoc] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [supabase, setSupabase] = useState<any>(null)
+
+  useEffect(() => {
+    import('@/lib/supabase/client').then(mod => setSupabase(mod.supabase))
+  }, [])
+
+  const fetchDocuments = useCallback(async (studentId: string) => {
+    if (!supabase) return
+    try {
+      const { data } = await supabase
+        .from('student_documents')
+        .select('*')
+        .eq('student_id', studentId)
+      setDocuments(data || [])
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
+  }, [supabase])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const session = localStorage.getItem('ssim_student_session')
+    if (!session) {
+      router.push('/student-login')
+      return
+    }
+
+    const studentData = JSON.parse(session)
+    setStudent(studentData)
+
+    const docType = searchParams.get('type')
+    if (docType) setSelectedDoc(docType)
+
+    if (studentData?.id) fetchDocuments(studentData.id)
+  }, [searchParams, fetchDocuments, router])
+
+  // Add your other functions (handleFileUpload, getDocumentStatus, handleLogout) here...
+
+  return (
+    <div className="flex min-h-screen bg-gray-900">
+      <Sidebar role="student" onLogout={() => {
+        localStorage.removeItem('ssim_student_session')
+        router.push('/student-login')
+      }} />
+      
+      <main className="flex-1 ml-0 md:ml-64 p-6">
+        <div className="max-w-4xl mx-auto">
+          <h1 className="text-3xl font-bold text-white mb-8">Upload Documents</h1>
+          <p className="text-green-400">Page is rendering...</p>
+          {/* Add your document cards here later */}
+        </div>
+      </main>
+    </div>
+  )
 }
