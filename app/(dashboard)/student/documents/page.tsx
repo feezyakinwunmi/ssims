@@ -317,10 +317,7 @@ import dynamic from 'next/dynamic';
 
 const StudentDocumentsClient = dynamic(
   () => import('./StudentDocumentsClient'),
-  { 
-    ssr: false,
-    loading: () => <div className="min-h-screen bg-gray-900 flex items-center justify-center text-white">Loading...</div>
-  }
+  { ssr: false }
 );
 
 export default function Page() {
