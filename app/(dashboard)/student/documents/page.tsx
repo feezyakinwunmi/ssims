@@ -307,3 +307,8 @@ export default function StudentDocumentsPage() {
     </div>
   )
 }
+
+
+
+
+export const dynamic = 'force-dynamic';
