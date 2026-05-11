@@ -1,10 +1,6 @@
-
-
 'use client'
 
-
-
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
 import Sidebar from '../../../components/ui/Sidebar'
@@ -21,7 +17,10 @@ const documentTypes = [
   { id: 'jamb', name: 'JAMB Result', required: true, description: 'Upload your JAMB result slip' },
 ]
 
-export default function StudentDocumentsPage() {
+export const dynamic = 'force-dynamic';
+
+// Inner Component (This handles useSearchParams safely)
+function DocumentsContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [student, setStudent] = useState<any>(null)
@@ -31,7 +30,6 @@ export default function StudentDocumentsPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Get student from localStorage
     const session = localStorage.getItem('ssim_student_session')
     
     if (!session) {
@@ -42,17 +40,14 @@ export default function StudentDocumentsPage() {
     const studentData = JSON.parse(session)
     setStudent(studentData)
     
-    // Check URL param for document type
     const docType = searchParams.get('type')
     if (docType) {
       setSelectedDoc(docType)
     }
     
-    // Fetch documents
     fetchDocuments(studentData.id)
   }, [searchParams])
 
-  
   const fetchDocuments = async (studentId: string) => {
     try {
       const { data } = await supabase
@@ -74,14 +69,12 @@ export default function StudentDocumentsPage() {
       return
     }
 
-    // Validate file type
     const validTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg']
     if (!validTypes.includes(file.type)) {
       alert('Only PDF, JPEG, and PNG files are allowed')
       return
     }
 
-    // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
       alert('File size must be less than 5MB')
       return
@@ -90,31 +83,23 @@ export default function StudentDocumentsPage() {
     setUploading(true)
 
     try {
-      // Generate unique file name
       const fileExt = file.name.split('.').pop()
       const fileName = `${student.id}/${documentType}_${Date.now()}.${fileExt}`
       
-      // Upload to Supabase Storage
       const { error: uploadError } = await supabase.storage
         .from('student-documents')
         .upload(fileName, file)
 
-      if (uploadError) {
-        console.error('Upload error:', uploadError)
-        throw uploadError
-      }
+      if (uploadError) throw uploadError
 
-      // Get public URL
       const { data: { publicUrl } } = supabase.storage
         .from('student-documents')
         .getPublicUrl(fileName)
 
-      // Check if document already exists
       const existingDoc = documents.find(d => d.document_type === documentType)
       
       let dbError
       if (existingDoc) {
-        // Update existing document
         const { error } = await supabase
           .from('student_documents')
           .update({
@@ -125,7 +110,6 @@ export default function StudentDocumentsPage() {
           .eq('id', existingDoc.id)
         dbError = error
       } else {
-        // Insert new document
         const { error } = await supabase
           .from('student_documents')
           .insert({
@@ -140,8 +124,6 @@ export default function StudentDocumentsPage() {
       if (dbError) throw dbError
 
       alert('Document uploaded successfully! It will be reviewed by an admin.')
-      
-      // Refresh documents
       await fetchDocuments(student.id)
       setSelectedDoc(null)
     } catch (err) {
@@ -223,9 +205,7 @@ export default function StudentDocumentsPage() {
                     <div>
                       <h3 className="text-lg font-semibold text-white">
                         {doc.name}
-                        {doc.required && (
-                          <span className="ml-2 text-xs text-red-400">Required</span>
-                        )}
+                        {doc.required && <span className="ml-2 text-xs text-red-400">Required</span>}
                       </h3>
                       <p className="text-sm text-gray-400 mt-1">{doc.description}</p>
                     </div>
@@ -236,20 +216,14 @@ export default function StudentDocumentsPage() {
                         'bg-red-500/20 text-red-400'
                       }`}>
                         {status.status === 'verified' ? '✓ Verified' :
-                         status.status === 'pending' ? '⏳ Pending Review' :
-                         '✗ Rejected'}
+                         status.status === 'pending' ? '⏳ Pending Review' : '✗ Rejected'}
                       </span>
                     )}
                   </div>
 
                   {status && status.status !== 'rejected' && (
                     <div className="mb-3">
-                      <a 
-                        href={status.url} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="text-blue-400 hover:text-blue-300 text-sm"
-                      >
+                      <a href={status.url} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 text-sm">
                         View uploaded file →
                       </a>
                     </div>
@@ -260,11 +234,7 @@ export default function StudentDocumentsPage() {
                       <input
                         type="file"
                         accept=".pdf,.jpg,.jpeg,.png"
-                        onChange={(e) => {
-                          if (e.target.files && e.target.files[0]) {
-                            handleFileUpload(doc.id, e.target.files[0])
-                          }
-                        }}
+                        onChange={(e) => e.target.files?.[0] && handleFileUpload(doc.id, e.target.files[0])}
                         className="hidden"
                         id={`file-${doc.id}`}
                         disabled={uploading}
@@ -274,14 +244,7 @@ export default function StudentDocumentsPage() {
                           htmlFor={`file-${doc.id}`}
                           className={`flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition text-center cursor-pointer ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}
                         >
-                          {isUploading ? (
-                            <span className="flex items-center justify-center gap-2">
-                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                              Uploading...
-                            </span>
-                          ) : (
-                            'Choose File'
-                          )}
+                          {isUploading ? 'Uploading...' : 'Choose File'}
                         </label>
                         <button
                           onClick={() => setSelectedDoc(null)}
@@ -309,6 +272,18 @@ export default function StudentDocumentsPage() {
   )
 }
 
-
-
-
+// Main Page with Suspense Boundary
+export default function StudentDocumentsPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gray-900">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+          <p className="mt-4 text-gray-400">Loading your documents...</p>
+        </div>
+      </div>
+    }>
+      <DocumentsContent />
+    </Suspense>
+  )
+}
